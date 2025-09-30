@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>System Gauges</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+   
+    <script src="https://cdn.plot.ly/plotly-3.1.0.min.js" charset="utf-8"></script>
+    <style>
+      body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; padding: 24px; background:#0b0d10; color:#e8eaed;}
+      .container { max-width: 1000px; margin: 0 auto; }
+      .gauges { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+      .card { background:#11161c; border:1px solid #263241; border-radius:10px; padding:12px; }
+      .title { margin:0 0 8px 6px; font-size:14px; color:#b6c3d5; letter-spacing:.3px; }
+      .plot { width:100%; height:340px; }
+      footer { margin-top: 12px; font-size: 12px; color: #9aa7b2; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="gauges">
+        <div class="card">
+          <h3 class="title">CPU</h3>
+          <div id="cpu-gauge" class="plot"></div>
+        </div>
+        <div class="card">
+          <h3 class="title">Memory</h3>
+          <div id="mem-gauge" class="plot"></div>
+        </div>
+      </div>
+      <footer>Updates every 2s from /metrics</footer>
+    </div>
+
+    <script>
+      function buildGauge(title, value, maxValue = 100) {
+        const trace = {
+          type: "indicator",
+          mode: "gauge+number",
+          value: value,
+          title: { text: title },
+          gauge: {
+            axis: { range: [0, maxValue], tickwidth: 1, tickcolor: "#62798b" },
+            bar: { color: "#39c27f" },
+            bgcolor: "#11161c",
+            borderwidth: 1,
+            bordercolor: "#263241",
+            steps: [
+              { range: [0, 0.6 * maxValue], color: "#12301f" },
+              { range: [0.6 * maxValue, 0.85 * maxValue], color: "#3a2f00" },
+              { range: [0.85 * maxValue, maxValue], color: "#3a1114" }
+            ]
+          },
+          domain: { x: [0, 1], y: [0, 1] }
+        };
+        const layout = {
+          margin: { t: 20, r: 20, b: 20, l: 20 },
+          paper_bgcolor: "#11161c",
+          font: { color: "#e8eaed" }
+        };
+        return { trace, layout };
+      }
+
+      const cpu = buildGauge("CPU %", 0);
+      const mem = buildGauge("Memory %", 0);
+
+      Plotly.newPlot("cpu-gauge", [cpu.trace], cpu.layout);
+      Plotly.newPlot("mem-gauge", [mem.trace], mem.layout);  
+      async function fetchMetrics() {
+        const res = await fetch("/metrics", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const cpuVal = Number(data.cpu_percent || 0);
+        const memVal = Number(data.mem_percent || 0);
+
+        Plotly.restyle("cpu-gauge", { value: [cpuVal] });
+        Plotly.restyle("mem-gauge", { value: [memVal] });
+      }
+
+      fetchMetrics();  
+      setInterval(fetchMetrics, 2000);  
+    </script>
+  </body>
+</html>
